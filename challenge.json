@@ -1,0 +1,41 @@
+{
+  "id": "dockerize-python-app",
+  "title": "Dockerize a Python Application",
+  "description": "Learn Docker by containerizing a Python Flask API with multi-stage builds, security best practices, and Docker Compose.",
+  "category": "devops",
+  "difficulty": "beginner",
+  "estimated_time": "2-3 hours",
+  "points": 100,
+  "order": 2,
+  "prerequisites": [
+    "Basic Python knowledge",
+    "Basic terminal/command line usage"
+  ],
+  "skills_learned": [
+    "Docker fundamentals (images, containers, builds)",
+    "Writing Dockerfiles",
+    "Multi-stage builds for smaller images",
+    "Security best practices (non-root user)",
+    "Health checks for container orchestration",
+    "Docker Compose for multi-container apps",
+    ".dockerignore for build optimization"
+  ],
+  "tech_stack": {
+    "language": "python",
+    "version": "3.11",
+    "tools": ["Docker", "Docker Compose"],
+    "frameworks": ["Flask"]
+  },
+  "grading": {
+    "dockerfile_exists": 5,
+    "multistage_build": 15,
+    "slim_image": 10,
+    "nonroot_user": 15,
+    "healthcheck": 10,
+    "dockerignore": 5,
+    "compose_valid": 15,
+    "image_builds": 10,
+    "image_size": 10,
+    "container_runs": 5
+  }
+}

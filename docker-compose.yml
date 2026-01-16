@@ -1,0 +1,39 @@
+# ============================================
+# Docker Compose Challenge
+# ============================================
+#
+# YOUR TASK: Create a docker-compose.yml that:
+# 1. Runs the API (build from Dockerfile)
+# 2. Runs Redis (use redis:7-alpine image)
+# 3. Connects them on the same network
+# 4. Uses volumes for development
+# 5. Includes health checks
+#
+# Hints:
+# - Use 'depends_on' to start Redis before API
+# - Mount ./src:/app/src for live code reload
+# - Set REDIS_URL=redis://redis:6379
+# - Add healthcheck for both services
+#
+# ============================================
+
+# TODO: Replace this with your implementation!
+
+version: '3.8'
+
+services:
+  api:
+    # TODO: Configure the API service
+    # - build from current directory
+    # - expose port 5000
+    # - set environment variables
+    # - mount source code volume
+    # - depend on redis
+    build: .
+    ports:
+      - "5000:5000"
+
+  # TODO: Add redis service
+  # redis:
+  #   image: redis:7-alpine
+  #   ...

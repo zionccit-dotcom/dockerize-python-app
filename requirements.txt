@@ -1,0 +1,4 @@
+# Docker Challenge Dependencies
+flask>=3.0.0
+redis>=5.0.0
+gunicorn>=21.0.0

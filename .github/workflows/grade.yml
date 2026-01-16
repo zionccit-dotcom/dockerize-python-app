@@ -1,0 +1,250 @@
+# Docker Challenge Grading Workflow
+name: 🐳 Grade Docker Challenge
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  grade:
+    name: Grade Docker Implementation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # ==========================================
+      # Check 1: Dockerfile exists (5 pts)
+      # ==========================================
+      - name: 📄 Check Dockerfile exists
+        id: dockerfile_exists
+        run: |
+          echo "## Check 1: Dockerfile Exists" >> $GITHUB_STEP_SUMMARY
+          if [ -f "Dockerfile" ]; then
+            echo "✅ **PASSED** - 5/5 points" >> $GITHUB_STEP_SUMMARY
+            echo "passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ **FAILED** - Dockerfile not found" >> $GITHUB_STEP_SUMMARY
+            echo "passed=false" >> $GITHUB_OUTPUT
+          fi
+
+      # ==========================================
+      # Check 2: Multi-stage build (15 pts)
+      # ==========================================
+      - name: 🔧 Check multi-stage build
+        id: multistage
+        run: |
+          echo "## Check 2: Multi-Stage Build" >> $GITHUB_STEP_SUMMARY
+          FROM_COUNT=$(grep -c "^FROM" Dockerfile || echo "0")
+          if [ "$FROM_COUNT" -ge 2 ]; then
+            echo "✅ **PASSED** - Found $FROM_COUNT stages - 15/15 points" >> $GITHUB_STEP_SUMMARY
+            echo "passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ **FAILED** - Only $FROM_COUNT FROM statement(s). Need 2+ for multi-stage." >> $GITHUB_STEP_SUMMARY
+            echo "passed=false" >> $GITHUB_OUTPUT
+          fi
+
+      # ==========================================
+      # Check 3: Slim base image (10 pts)
+      # ==========================================
+      - name: 📦 Check slim base image
+        id: slim_image
+        run: |
+          echo "## Check 3: Slim Base Image" >> $GITHUB_STEP_SUMMARY
+          # Get the last FROM statement (final stage)
+          LAST_FROM=$(grep "^FROM" Dockerfile | tail -1)
+          if echo "$LAST_FROM" | grep -qE "(slim|alpine)"; then
+            echo "✅ **PASSED** - Using slim/alpine image - 10/10 points" >> $GITHUB_STEP_SUMMARY
+            echo "passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ **FAILED** - Final stage should use slim or alpine image" >> $GITHUB_STEP_SUMMARY
+            echo "Last FROM: $LAST_FROM" >> $GITHUB_STEP_SUMMARY
+            echo "passed=false" >> $GITHUB_OUTPUT
+          fi
+
+      # ==========================================
+      # Check 4: Non-root user (15 pts)
+      # ==========================================
+      - name: 👤 Check non-root user
+        id: nonroot
+        run: |
+          echo "## Check 4: Non-Root User" >> $GITHUB_STEP_SUMMARY
+          HAS_USERADD=$(grep -c "useradd\|adduser" Dockerfile || echo "0")
+          HAS_USER=$(grep -cE "^USER\s+[^r][^o][^o][^t]" Dockerfile || echo "0")
+          if [ "$HAS_USERADD" -ge 1 ] && [ "$HAS_USER" -ge 1 ]; then
+            echo "✅ **PASSED** - Non-root user configured - 15/15 points" >> $GITHUB_STEP_SUMMARY
+            echo "passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ **FAILED** - Must create and switch to non-root user" >> $GITHUB_STEP_SUMMARY
+            echo "passed=false" >> $GITHUB_OUTPUT
+          fi
+
+      # ==========================================
+      # Check 5: Health check (10 pts)
+      # ==========================================
+      - name: ❤️ Check health check
+        id: healthcheck
+        run: |
+          echo "## Check 5: Health Check" >> $GITHUB_STEP_SUMMARY
+          if grep -q "HEALTHCHECK" Dockerfile; then
+            echo "✅ **PASSED** - Health check defined - 10/10 points" >> $GITHUB_STEP_SUMMARY
+            echo "passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ **FAILED** - No HEALTHCHECK instruction found" >> $GITHUB_STEP_SUMMARY
+            echo "passed=false" >> $GITHUB_OUTPUT
+          fi
+
+      # ==========================================
+      # Check 6: .dockerignore (5 pts)
+      # ==========================================
+      - name: 🚫 Check .dockerignore
+        id: dockerignore
+        run: |
+          echo "## Check 6: .dockerignore" >> $GITHUB_STEP_SUMMARY
+          if [ -f ".dockerignore" ]; then
+            if grep -q "__pycache__\|\.pyc" .dockerignore; then
+              echo "✅ **PASSED** - .dockerignore configured - 5/5 points" >> $GITHUB_STEP_SUMMARY
+              echo "passed=true" >> $GITHUB_OUTPUT
+            else
+              echo "⚠️ **PARTIAL** - .dockerignore exists but missing common patterns" >> $GITHUB_STEP_SUMMARY
+              echo "passed=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "❌ **FAILED** - .dockerignore not found" >> $GITHUB_STEP_SUMMARY
+            echo "passed=false" >> $GITHUB_OUTPUT
+          fi
+
+      # ==========================================
+      # Check 7: docker-compose.yml (15 pts)
+      # ==========================================
+      - name: 🐙 Check docker-compose.yml
+        id: compose
+        run: |
+          echo "## Check 7: Docker Compose" >> $GITHUB_STEP_SUMMARY
+          if [ -f "docker-compose.yml" ]; then
+            HAS_API=$(grep -c "api:" docker-compose.yml || echo "0")
+            HAS_REDIS=$(grep -c "redis" docker-compose.yml || echo "0")
+            HAS_PORTS=$(grep -c "5000:5000" docker-compose.yml || echo "0")
+
+            SCORE=0
+            [ "$HAS_API" -ge 1 ] && SCORE=$((SCORE + 5))
+            [ "$HAS_REDIS" -ge 1 ] && SCORE=$((SCORE + 5))
+            [ "$HAS_PORTS" -ge 1 ] && SCORE=$((SCORE + 5))
+
+            if [ "$SCORE" -eq 15 ]; then
+              echo "✅ **PASSED** - docker-compose.yml complete - 15/15 points" >> $GITHUB_STEP_SUMMARY
+              echo "passed=true" >> $GITHUB_OUTPUT
+            else
+              echo "⚠️ **PARTIAL** - docker-compose.yml incomplete - $SCORE/15 points" >> $GITHUB_STEP_SUMMARY
+              echo "passed=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "❌ **FAILED** - docker-compose.yml not found" >> $GITHUB_STEP_SUMMARY
+            echo "passed=false" >> $GITHUB_OUTPUT
+          fi
+
+      # ==========================================
+      # Check 8: Image builds (10 pts)
+      # ==========================================
+      - name: 🔨 Build Docker image
+        id: build
+        run: |
+          echo "## Check 8: Image Build" >> $GITHUB_STEP_SUMMARY
+          if docker build -t docker-challenge-test . 2>&1 | tee build.log; then
+            echo "✅ **PASSED** - Image builds successfully - 10/10 points" >> $GITHUB_STEP_SUMMARY
+            echo "passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ **FAILED** - Build failed" >> $GITHUB_STEP_SUMMARY
+            echo "<details><summary>Build log</summary>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -50 build.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "</details>" >> $GITHUB_STEP_SUMMARY
+            echo "passed=false" >> $GITHUB_OUTPUT
+          fi
+
+      # ==========================================
+      # Check 9: Image size (10 pts)
+      # ==========================================
+      - name: 📏 Check image size
+        id: size
+        if: steps.build.outputs.passed == 'true'
+        run: |
+          echo "## Check 9: Image Size" >> $GITHUB_STEP_SUMMARY
+          SIZE=$(docker images docker-challenge-test --format "{{.Size}}")
+          SIZE_MB=$(docker images docker-challenge-test --format "{{.Size}}" | sed 's/MB//' | sed 's/GB/*1024/' | bc 2>/dev/null || echo "999")
+
+          if [ -n "$SIZE_MB" ] && [ "$SIZE_MB" -lt 200 ] 2>/dev/null; then
+            echo "✅ **PASSED** - Image size: $SIZE (< 200MB) - 10/10 points" >> $GITHUB_STEP_SUMMARY
+            echo "passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ **FAILED** - Image size: $SIZE (should be < 200MB)" >> $GITHUB_STEP_SUMMARY
+            echo "passed=false" >> $GITHUB_OUTPUT
+          fi
+
+      # ==========================================
+      # Check 10: Container runs (5 pts)
+      # ==========================================
+      - name: 🚀 Test container
+        id: run_test
+        if: steps.build.outputs.passed == 'true'
+        run: |
+          echo "## Check 10: Container Test" >> $GITHUB_STEP_SUMMARY
+
+          # Run container
+          docker run -d --name test-container -p 5000:5000 docker-challenge-test
+          sleep 5
+
+          # Test health endpoint
+          if curl -s http://localhost:5000/health | grep -q "healthy"; then
+            echo "✅ **PASSED** - Container responds correctly - 5/5 points" >> $GITHUB_STEP_SUMMARY
+            echo "passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ **FAILED** - Container not responding" >> $GITHUB_STEP_SUMMARY
+            docker logs test-container >> $GITHUB_STEP_SUMMARY 2>&1 || true
+            echo "passed=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Cleanup
+          docker rm -f test-container || true
+
+      # ==========================================
+      # Calculate Total Score
+      # ==========================================
+      - name: 📊 Calculate Score
+        run: |
+          score=0
+
+          [ "${{ steps.dockerfile_exists.outputs.passed }}" == "true" ] && score=$((score + 5))
+          [ "${{ steps.multistage.outputs.passed }}" == "true" ] && score=$((score + 15))
+          [ "${{ steps.slim_image.outputs.passed }}" == "true" ] && score=$((score + 10))
+          [ "${{ steps.nonroot.outputs.passed }}" == "true" ] && score=$((score + 15))
+          [ "${{ steps.healthcheck.outputs.passed }}" == "true" ] && score=$((score + 10))
+          [ "${{ steps.dockerignore.outputs.passed }}" == "true" ] && score=$((score + 5))
+          [ "${{ steps.compose.outputs.passed }}" == "true" ] && score=$((score + 15))
+          [ "${{ steps.build.outputs.passed }}" == "true" ] && score=$((score + 10))
+          [ "${{ steps.size.outputs.passed }}" == "true" ] && score=$((score + 10))
+          [ "${{ steps.run_test.outputs.passed }}" == "true" ] && score=$((score + 5))
+
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "# 🐳 Total Score: $score/100" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ $score -eq 100 ]; then
+            echo "## 🎉 CHALLENGE COMPLETE!" >> $GITHUB_STEP_SUMMARY
+            echo "You've mastered Docker containerization!" >> $GITHUB_STEP_SUMMARY
+          elif [ $score -ge 70 ]; then
+            echo "## 💪 Great progress! Almost there!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## 📚 Keep working! Check README.md for hints." >> $GITHUB_STEP_SUMMARY
+          fi
